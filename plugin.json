@@ -1,0 +1,21 @@
+{
+  "slug": "ptone-vpc40",
+  "name": "ptone-vpc40",
+  "version": "2.0.1",
+  "license": "MIT",
+  "brand": "ptone-vpc40",
+  "author": "ptone",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+        "slug": "Vpc40Module",
+        "name": "Vpc40 Module"
+    }
+  ]
+}
