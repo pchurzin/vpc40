@@ -15,7 +15,10 @@
   "modules": [
     {
         "slug": "Vpc40Module",
-        "name": "Vpc40 Module"
+        "name": "Vpc40 Module",
+        "tags": [
+            "Poly"
+        ]
     }
   ]
 }

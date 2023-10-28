@@ -54,9 +54,11 @@ struct Vpc40Module : Module {
     uint8_t bank = 0;
 
     // track knob values 
-    float trackKnobs[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
+    float trackKnobsVoltage[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
+    uint8_t trackKnobsMidi[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
     // device knob values 
-    float deviceKnobs[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
+    float deviceKnobVoltage[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
+    uint8_t deviceKnobsMidi[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -64,7 +66,9 @@ struct Vpc40Module : Module {
         configButton(TEST_PARAM, "Test");
         for (int i = 0; i < C_KNOB_NUM; i++) {
             configOutput(DEVICE_KNOB_1_OUTPUT + i, string::f("Device %d", i + 1));
+            getOutput(DEVICE_KNOB_1_OUTPUT + i).setChannels(PORT_MAX_CHANNELS - 1);
             configOutput(TRACK_KNOB_1_OUTPUT + i, string::f("Track %d", i + 1));
+            getOutput(TRACK_KNOB_1_OUTPUT + i).setChannels(PORT_MAX_CHANNELS - 1);
         }
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
@@ -80,45 +84,86 @@ struct Vpc40Module : Module {
             testLedRing(args);
         }
         rack::midi::Message inboundMidi;
+        bool needUpdate = false;
         while (midiInput.tryPop(&inboundMidi, args.frame)) {
-            DEBUG("Channel: %d, Note: %d, Status: %d", inboundMidi.getChannel(), inboundMidi.getNote(), inboundMidi.getStatus());
+            DEBUG("Channel: %d, Status: %d, Note/CC: %d, Value: %d", inboundMidi.getChannel(), inboundMidi.getStatus(), inboundMidi.getNote(), inboundMidi.getValue());
             if (inboundMidi.bytes[0] == 0xF0 && 
                     inboundMidi.bytes[3] == 0x06 &&
                     inboundMidi.bytes[4] == 0x02) {
                 processInquireResponse(inboundMidi);
                 introduce();
             }
+            
             if (inboundMidi.getStatus() == STATUS_NOTE_ON) {
                 // send note on back
                 setLedOn(args.frame, inboundMidi.getChannel(), inboundMidi.getNote());
+
+                if (inboundMidi.getNote() == BTN_RIGHT) {
+                    bank = bank + 1;
+                    if (bank > PORT_MAX_CHANNELS - 1) bank = 0;
+                    needUpdate = true;
+                } else if (inboundMidi.getNote() == BTN_LEFT) {
+                    if (bank == 0) {
+                        bank = PORT_MAX_CHANNELS - 1;
+                    } else {
+                        bank = bank - 1;
+                    }
+                    needUpdate = true;
+                }
             }
-            if (inboundMidi.getStatus() == STATUS_NOTE_OFF) {
+            else if (inboundMidi.getStatus() == STATUS_NOTE_OFF) {
                 setLedOff(args.frame, inboundMidi.getChannel(), inboundMidi.getNote());
             }
-            if (inboundMidi.getStatus() == STATUS_CC) {
-                setCc(args.frame, inboundMidi.getChannel(), inboundMidi.getNote(), inboundMidi.getValue());
+            else if (inboundMidi.getStatus() == STATUS_CC) {
                 uint8_t cc = inboundMidi.getNote();
-                if (cc >= C_DEVICE_KNOB_1 && cc <= C_DEVICE_KNOB_8) {
-                    deviceKnobs[bank * C_KNOB_NUM + cc - C_DEVICE_KNOB_1] = inboundMidi.getValue() / 127.f;
+                if (isDeviceKnob(cc)) {
+                    int knob = cc - C_DEVICE_KNOB_1;
+                    deviceKnobVoltage[knobIndex(knob, bank)] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f);
+                    deviceKnobsMidi[knobIndex(knob, bank)] = inboundMidi.getValue();
+                    setCc(args.frame, inboundMidi.getChannel(), cc, deviceKnobsMidi[knobIndex(knob, bank)]);
                 }
-                if (cc >= C_TRACK_KNOB_1 && cc <= C_TRACK_KNOB_8) {
-                    trackKnobs[bank * C_KNOB_NUM + cc - C_TRACK_KNOB_1] = inboundMidi.getValue() / 127.f;
-                }
-            }
-
-            for (uint8_t c = 0; c < PORT_MAX_CHANNELS; c++) {
-                // update track knob outputs
-                for(int k = 0; k < C_KNOB_NUM; k++) {
-                    if (!getOutput(TRACK_KNOB_1_OUTPUT + k).isConnected()) continue;
-                    getOutput(TRACK_KNOB_1_OUTPUT + k).setVoltage(10.f * clamp(trackKnobs[k], 0.f, 1.f), c);
-                }
-                // update device knob outputs
-                for(int k = 0; k < C_KNOB_NUM; k++) {
-                    if (!getOutput(DEVICE_KNOB_1_OUTPUT + k).isConnected()) continue;
-                    getOutput(DEVICE_KNOB_1_OUTPUT + k).setVoltage(10.f * clamp(deviceKnobs[k], 0.f, 1.f), c);
+                else if (isTrackKnob(cc)) {
+                    int knob = cc - C_TRACK_KNOB_1;
+                    trackKnobsVoltage[knobIndex(knob, bank)] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f);
+                    trackKnobsMidi[knobIndex(knob, bank)] = inboundMidi.getValue();
+                    setCc(args.frame, inboundMidi.getChannel(), cc, trackKnobsMidi[knobIndex(knob, bank)]);
                 }
             }
         }
+
+        if (needUpdate) {
+            for (int k = 0; k < C_KNOB_NUM; k++) {
+                setCc(args.frame, inboundMidi.getChannel(), C_TRACK_KNOB_1 + k, trackKnobsMidi[knobIndex(k, bank)]);
+                setCc(args.frame, inboundMidi.getChannel(), C_DEVICE_KNOB_1 + k, deviceKnobsMidi[knobIndex(k, bank)]);
+            }
+        }
+
+        for (uint8_t c = 0; c < PORT_MAX_CHANNELS; c++) {
+            for(int k = 0; k < C_KNOB_NUM; k++) {
+                // update track knob outputs
+                if (getOutput(TRACK_KNOB_1_OUTPUT + k).isConnected()) {
+                    getOutput(TRACK_KNOB_1_OUTPUT + k).setChannels(PORT_MAX_CHANNELS - 1);
+                    getOutput(TRACK_KNOB_1_OUTPUT + k).setVoltage(trackKnobsVoltage[knobIndex(k, c)], c);
+                }
+                // update device knob outputs
+                if (getOutput(DEVICE_KNOB_1_OUTPUT + k).isConnected()) {
+                    getOutput(DEVICE_KNOB_1_OUTPUT + k).setChannels(PORT_MAX_CHANNELS - 1);
+                    getOutput(DEVICE_KNOB_1_OUTPUT + k).setVoltage(deviceKnobVoltage[knobIndex(k, c)], c);
+                }
+            }
+        }
+    }
+
+    int knobIndex(uint8_t knob, uint8_t bank) {
+        return knob * PORT_MAX_CHANNELS + bank;
+    }
+
+    bool isDeviceKnob(uint8_t cc) {
+        return cc >= C_DEVICE_KNOB_1 && cc <= C_DEVICE_KNOB_8;
+    }
+
+    bool isTrackKnob(uint8_t cc) {
+        return cc >= C_DEVICE_KNOB_1 && cc <= C_TRACK_KNOB_8;
     }
 
     void setCc(int64_t frame, uint8_t midiChannel, uint8_t cc, uint8_t value) {
