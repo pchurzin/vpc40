@@ -115,6 +115,7 @@ struct Vpc40Module : Module {
                     inboundMidi.bytes[4] == 0x02) {
                 processInquireResponse(inboundMidi);
                 introduce();
+                reset();
             }
             
             if (inboundMidi.getStatus() == STATUS_NOTE_ON) {
@@ -290,6 +291,22 @@ struct Vpc40Module : Module {
         msg.bytes[10] = 0x00;
         msg.bytes[11] = 0xF7;
         midiOutput.sendMessage(msg);
+    }
+
+    void reset() {
+        bank = 0;
+        bankChanged = true;
+        for (int k = 0; k < C_KNOB_NUM; k++) {
+            for (int c = 0; c < PORT_MAX_CHANNELS; c++) {
+                int ki = knobIndex(k, c);
+                trackKnobsVoltage[ki] = 0.f;
+                trackKnobsMidi[ki] = 0;
+                trackKnobUpdates[ki] = true;
+                deviceKnobVoltage[ki] = 0.f;
+                deviceKnobsMidi[ki] = 0;
+                deviceKnobUpdates[ki] = true;
+            }
+        }
     }
 
     void testMidi(const ProcessArgs& args) {
