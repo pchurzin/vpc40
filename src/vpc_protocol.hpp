@@ -75,6 +75,7 @@
 #define C_DEVICE_KNOB_8 0x17
 
 #define C_KNOB_NUM 8
+#define CHAN_NUM 8
 
 #define C_DEVICE_KNOB_RING_TYPE_1 0x18
 #define C_DEVICE_KNOB_RING_TYPE_2 0x19

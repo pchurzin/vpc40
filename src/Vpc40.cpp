@@ -35,6 +35,15 @@ struct Vpc40Module : Module {
         TRACK_KNOB_6_OUTPUT,
         TRACK_KNOB_7_OUTPUT,
         TRACK_KNOB_8_OUTPUT,
+        TRACK_LEVEL_1_OUTPUT,
+        TRACK_LEVEL_2_OUTPUT,
+        TRACK_LEVEL_3_OUTPUT,
+        TRACK_LEVEL_4_OUTPUT,
+        TRACK_LEVEL_5_OUTPUT,
+        TRACK_LEVEL_6_OUTPUT,
+        TRACK_LEVEL_7_OUTPUT,
+        TRACK_LEVEL_8_OUTPUT,
+        MASTER_LEVEL_OUTPUT,
         NUM_OUTPUTS
     };
     enum LightIds {
@@ -64,6 +73,9 @@ struct Vpc40Module : Module {
     float deviceKnobVoltage[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
     uint8_t deviceKnobsMidi[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
     bool deviceKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {true};
+    // volume faders
+    float trackLevelVoltages[CHAN_NUM] = {0};
+
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -74,6 +86,9 @@ struct Vpc40Module : Module {
             outputs[DEVICE_KNOB_1_OUTPUT + i].channels = PORT_MAX_CHANNELS;
             configOutput(TRACK_KNOB_1_OUTPUT + i, string::f("Track %d", i + 1));
             outputs[TRACK_KNOB_1_OUTPUT + i].channels = PORT_MAX_CHANNELS;
+        }
+        for (int i = 0; i < CHAN_NUM; i++) {
+            configOutput(TRACK_LEVEL_1_OUTPUT + i, string::f("Level %d", i + 1));
         }
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
@@ -144,6 +159,11 @@ struct Vpc40Module : Module {
                         trackKnobUpdates[ki] = true;
                     }
                 }
+                // volume faders
+                else if (cc == C_TRACK_LEVEL) {
+                    uint8_t track = inboundMidi.getChannel();
+                    trackLevelVoltages[track] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f);
+                }
             }
         }
 
@@ -173,6 +193,11 @@ struct Vpc40Module : Module {
                 if (outputs[DEVICE_KNOB_1_OUTPUT + k].isConnected()) {
                     outputs[DEVICE_KNOB_1_OUTPUT + k].setVoltage(deviceKnobVoltage[ki], c);
                 }
+            }
+        }
+        for(uint8_t t = 0; t < CHAN_NUM; t++) {
+            if(outputs[TRACK_LEVEL_1_OUTPUT + t].isConnected()) {
+                outputs[TRACK_LEVEL_1_OUTPUT + t].setVoltage(trackLevelVoltages[t]);
             }
         }
     }
@@ -305,6 +330,9 @@ struct Vpc40Widget : ModuleWidget {
         for(int i = 0; i < C_KNOB_NUM / 2; i++) {
             addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 20)), module, Vpc40Module::TRACK_KNOB_5_OUTPUT + i));
             addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 50)), module, Vpc40Module::DEVICE_KNOB_5_OUTPUT + i));
+        }
+        for(int i = 0; i < CHAN_NUM; i++) {
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 80)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
         }
     }
 };
