@@ -75,7 +75,8 @@ struct Vpc40Module : Module {
     bool deviceKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {true};
     // volume faders
     float trackLevelVoltages[CHAN_NUM] = {0};
-
+    // master level
+    float masterLevelVoltage = 0.f;
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -90,6 +91,7 @@ struct Vpc40Module : Module {
         for (int i = 0; i < CHAN_NUM; i++) {
             configOutput(TRACK_LEVEL_1_OUTPUT + i, string::f("Level %d", i + 1));
         }
+        configOutput(MASTER_LEVEL_OUTPUT, "Master level");
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
     }
@@ -143,7 +145,7 @@ struct Vpc40Module : Module {
                     uint8_t oldMidiValue = deviceKnobsMidi[ki];
                     uint8_t newMidiValue = inboundMidi.getValue();
                     if(oldMidiValue != newMidiValue) {
-                        deviceKnobVoltage[ki] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f); 
+                        deviceKnobVoltage[ki] = calculateVoltage(inboundMidi.getValue());; 
                         deviceKnobsMidi[ki] = newMidiValue;
                         deviceKnobUpdates[ki] = true;
                     }
@@ -154,7 +156,7 @@ struct Vpc40Module : Module {
                     uint8_t oldMidiValue = deviceKnobsMidi[ki];
                     uint8_t newMidiValue = inboundMidi.getValue();
                     if(oldMidiValue != newMidiValue) {
-                        trackKnobsVoltage[ki] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f);
+                        trackKnobsVoltage[ki] = calculateVoltage(inboundMidi.getValue());;
                         trackKnobsMidi[ki] = inboundMidi.getValue();
                         trackKnobUpdates[ki] = true;
                     }
@@ -162,7 +164,10 @@ struct Vpc40Module : Module {
                 // volume faders
                 else if (cc == C_TRACK_LEVEL) {
                     uint8_t track = inboundMidi.getChannel();
-                    trackLevelVoltages[track] = 10.f * clamp(inboundMidi.getValue() / 127.f, 0.f, 1.f);
+                    trackLevelVoltages[track] = calculateVoltage(inboundMidi.getValue());
+                }
+                else if (cc == C_MASTER_LEVEL) {
+                    masterLevelVoltage = calculateVoltage(inboundMidi.getValue());
                 }
             }
         }
@@ -200,6 +205,7 @@ struct Vpc40Module : Module {
                 outputs[TRACK_LEVEL_1_OUTPUT + t].setVoltage(trackLevelVoltages[t]);
             }
         }
+        outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
@@ -212,6 +218,10 @@ struct Vpc40Module : Module {
 
     bool isTrackKnob(uint8_t cc) {
         return cc >= C_DEVICE_KNOB_1 && cc <= C_TRACK_KNOB_8;
+    }
+
+    float calculateVoltage(uint8_t midiValue) {
+        return 10.f * clamp(midiValue / 127.f, 0.f, 1.f);
     }
 
     void setCc(int64_t frame, uint8_t midiChannel, uint8_t cc, uint8_t value) {
@@ -334,6 +344,7 @@ struct Vpc40Widget : ModuleWidget {
         for(int i = 0; i < CHAN_NUM; i++) {
             addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 80)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
         }
+        addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(110, 80)), module, Vpc40Module::MASTER_LEVEL_OUTPUT));
     }
 };
 
