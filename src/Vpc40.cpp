@@ -71,9 +71,9 @@ struct Vpc40Module : Module {
         configButton(TEST_PARAM, "Test");
         for (int i = 0; i < C_KNOB_NUM; i++) {
             configOutput(DEVICE_KNOB_1_OUTPUT + i, string::f("Device %d", i + 1));
-            outputs[DEVICE_KNOB_1_OUTPUT + i].setChannels(PORT_MAX_CHANNELS - 1);
+            outputs[DEVICE_KNOB_1_OUTPUT + i].channels = PORT_MAX_CHANNELS;
             configOutput(TRACK_KNOB_1_OUTPUT + i, string::f("Track %d", i + 1));
-            outputs[TRACK_KNOB_1_OUTPUT + i].setChannels(PORT_MAX_CHANNELS - 1);
+            outputs[TRACK_KNOB_1_OUTPUT + i].channels = PORT_MAX_CHANNELS;
         }
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
@@ -167,12 +167,10 @@ struct Vpc40Module : Module {
                 // update track knob outputs
                 int ki = knobIndex(k, c);
                 if (outputs[TRACK_KNOB_1_OUTPUT + k].isConnected()) {
-                    outputs[TRACK_KNOB_1_OUTPUT + k].channels = PORT_MAX_CHANNELS;
                     outputs[TRACK_KNOB_1_OUTPUT + k].setVoltage(trackKnobsVoltage[ki], c);
                 }
                 // update device knob outputs
                 if (outputs[DEVICE_KNOB_1_OUTPUT + k].isConnected()) {
-                    outputs[DEVICE_KNOB_1_OUTPUT + k].channels = PORT_MAX_CHANNELS;
                     outputs[DEVICE_KNOB_1_OUTPUT + k].setVoltage(deviceKnobVoltage[ki], c);
                 }
             }
