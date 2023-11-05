@@ -226,7 +226,7 @@ struct Vpc40Module : Module {
     }
 
     bool isTrackKnob(uint8_t cc) {
-        return cc >= C_DEVICE_KNOB_1 && cc <= C_TRACK_KNOB_8;
+        return cc >= C_TRACK_KNOB_1 && cc <= C_TRACK_KNOB_8;
     }
 
     float calculateVoltage(uint8_t midiValue) {
