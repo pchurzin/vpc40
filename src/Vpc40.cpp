@@ -45,6 +45,7 @@ struct Vpc40Module : Module {
         TRACK_LEVEL_8_OUTPUT,
         MASTER_LEVEL_OUTPUT,
         X_FADER_OUTPUT,
+        CUE_OUTPUT,
         NUM_OUTPUTS
     };
     enum LightIds {
@@ -80,6 +81,9 @@ struct Vpc40Module : Module {
     float masterLevelVoltage = 0.f;
     // x-fader
     float xFaderVoltage = 0.f;
+    // cue
+    uint8_t cueMidiValue = 0;
+    float cueVoltage = 0.f;
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -96,6 +100,7 @@ struct Vpc40Module : Module {
         }
         configOutput(MASTER_LEVEL_OUTPUT, "Master level");
         configOutput(X_FADER_OUTPUT, "X-Fader level");
+        configOutput(CUE_OUTPUT, "Cue level");
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
     }
@@ -177,6 +182,28 @@ struct Vpc40Module : Module {
                 else if (cc == C_CROSSFADER) {
                     xFaderVoltage = calculateVoltage(inboundMidi.getValue());
                 }
+                else if (cc == C_CUE_LEVEL) {
+                    uint8_t delta = inboundMidi.getValue();
+                    if (delta > 0 && delta <= 0x3F && cueMidiValue < 127) {
+                        uint8_t availableDelta = 127 - cueMidiValue;
+                        if (delta < availableDelta) {
+                            cueMidiValue += delta;
+                        } else {
+                            cueMidiValue = 127;
+                        }
+                        cueVoltage = calculateVoltage(cueMidiValue);
+                    }
+                    else if (delta >= 0x40 && delta <= 0x7F && cueMidiValue > 0) {
+                        uint8_t normalizedDelta = 0x80 - delta;
+                        if (normalizedDelta < cueMidiValue) {
+                            cueMidiValue -= normalizedDelta;
+                        } else {
+                            cueMidiValue = 0;
+                        }
+                        cueVoltage = calculateVoltage(cueMidiValue);
+                    }
+                }
+
             }
         }
 
@@ -215,6 +242,7 @@ struct Vpc40Module : Module {
         }
         outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
         outputs[X_FADER_OUTPUT].setVoltage(xFaderVoltage);
+        outputs[CUE_OUTPUT].setVoltage(cueVoltage);
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
@@ -371,6 +399,7 @@ struct Vpc40Widget : ModuleWidget {
         }
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(110, 80)), module, Vpc40Module::MASTER_LEVEL_OUTPUT));
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(130, 80)), module, Vpc40Module::X_FADER_OUTPUT));
+        addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150, 80)), module, Vpc40Module::CUE_OUTPUT));
     }
 };
 
