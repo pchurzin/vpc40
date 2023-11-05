@@ -44,6 +44,7 @@ struct Vpc40Module : Module {
         TRACK_LEVEL_7_OUTPUT,
         TRACK_LEVEL_8_OUTPUT,
         MASTER_LEVEL_OUTPUT,
+        X_FADER_OUTPUT,
         NUM_OUTPUTS
     };
     enum LightIds {
@@ -77,6 +78,8 @@ struct Vpc40Module : Module {
     float trackLevelVoltages[CHAN_NUM] = {0};
     // master level
     float masterLevelVoltage = 0.f;
+    // x-fader
+    float xFaderVoltage = 0.f;
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -92,6 +95,7 @@ struct Vpc40Module : Module {
             configOutput(TRACK_LEVEL_1_OUTPUT + i, string::f("Level %d", i + 1));
         }
         configOutput(MASTER_LEVEL_OUTPUT, "Master level");
+        configOutput(X_FADER_OUTPUT, "X-Fader level");
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
     }
@@ -170,6 +174,9 @@ struct Vpc40Module : Module {
                 else if (cc == C_MASTER_LEVEL) {
                     masterLevelVoltage = calculateVoltage(inboundMidi.getValue());
                 }
+                else if (cc == C_CROSSFADER) {
+                    xFaderVoltage = calculateVoltage(inboundMidi.getValue());
+                }
             }
         }
 
@@ -207,6 +214,7 @@ struct Vpc40Module : Module {
             }
         }
         outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
+        outputs[X_FADER_OUTPUT].setVoltage(xFaderVoltage);
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
@@ -362,6 +370,7 @@ struct Vpc40Widget : ModuleWidget {
             addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 80)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
         }
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(110, 80)), module, Vpc40Module::MASTER_LEVEL_OUTPUT));
+        addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(130, 80)), module, Vpc40Module::X_FADER_OUTPUT));
     }
 };
 
