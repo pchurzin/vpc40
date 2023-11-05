@@ -240,9 +240,15 @@ struct Vpc40Module : Module {
                 outputs[TRACK_LEVEL_1_OUTPUT + t].setVoltage(trackLevelVoltages[t]);
             }
         }
-        outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
-        outputs[X_FADER_OUTPUT].setVoltage(xFaderVoltage);
-        outputs[CUE_OUTPUT].setVoltage(cueVoltage);
+        if (outputs[MASTER_LEVEL_OUTPUT].isConnected()) {
+            outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
+        }
+        if (outputs[X_FADER_OUTPUT].isConnected()) {
+            outputs[X_FADER_OUTPUT].setVoltage(xFaderVoltage);
+        }
+        if (outputs[CUE_OUTPUT].isConnected()) {
+            outputs[CUE_OUTPUT].setVoltage(cueVoltage);
+        }
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
