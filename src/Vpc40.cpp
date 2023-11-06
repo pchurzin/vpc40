@@ -84,6 +84,9 @@ struct Vpc40Module : Module {
     // cue
     uint8_t cueMidiValue = 0;
     float cueVoltage = 0.f;
+    // track LEDs
+    uint8_t trackLedMidiValue[CHAN_LED_NUM * CHAN_NUM] = {0};
+    bool trackLedUpdated[CHAN_LED_NUM * CHAN_NUM] = {false};
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -128,10 +131,14 @@ struct Vpc40Module : Module {
             }
             
             if (inboundMidi.getStatus() == STATUS_NOTE_ON) {
-                // send note on back
-                setLedOn(args.frame, inboundMidi.getChannel(), inboundMidi.getNote());
-
-                if (inboundMidi.getNote() == BTN_RIGHT) {
+                uint8_t note = inboundMidi.getNote();
+                if (isTrackLed(note)) {
+                    uint8_t led = note - LED_RECORD;
+                    int ledIndex = trackLedIndex(led, inboundMidi.getChannel());
+                    trackLedMidiValue[ledIndex] = LED_ON;
+                    trackLedUpdated[ledIndex] = true;
+                }
+                else if (inboundMidi.getNote() == BTN_RIGHT) {
                     bank = bank + 1;
                     if (bank > PORT_MAX_CHANNELS - 1) bank = 0;
                     bankChanged = true;
@@ -145,7 +152,13 @@ struct Vpc40Module : Module {
                 }
             }
             else if (inboundMidi.getStatus() == STATUS_NOTE_OFF) {
-                setLedOff(args.frame, inboundMidi.getChannel(), inboundMidi.getNote());
+                uint8_t note = inboundMidi.getNote();
+                if (isTrackLed(note)) {
+                    uint8_t led = note - LED_RECORD;
+                    int ledIndex = trackLedIndex(led, inboundMidi.getChannel());
+                    trackLedMidiValue[ledIndex] = LED_OFF;
+                    trackLedUpdated[ledIndex] = true;
+                }
             }
             else if (inboundMidi.getStatus() == STATUS_CC) {
                 uint8_t cc = inboundMidi.getNote();
@@ -220,6 +233,19 @@ struct Vpc40Module : Module {
                 }
             }
             bankChanged = false;
+            for (uint8_t c = 0; c < CHAN_NUM; c++) {
+                for (uint8_t l = 0; l < CHAN_LED_NUM; l++) {
+                    int ledIndex = trackLedIndex(l, c);
+                    if (!trackLedUpdated[ledIndex]) continue;
+                    if (trackLedMidiValue[ledIndex] == LED_OFF) {
+                        setLedOff(args.frame, c, LED_RECORD + l);
+                    }
+                    else {
+                        setLedOn(args.frame, c, LED_RECORD + l, trackLedMidiValue[ledIndex]);
+                    }
+                    trackLedUpdated[ledIndex] = false;
+                }
+            }
         }
 
         for (uint8_t c = 0; c < PORT_MAX_CHANNELS; c++) {
@@ -261,6 +287,14 @@ struct Vpc40Module : Module {
 
     bool isTrackKnob(uint8_t cc) {
         return cc >= C_TRACK_KNOB_1 && cc <= C_TRACK_KNOB_8;
+    }
+
+    bool isTrackLed(uint8_t note) {
+        return note >= LED_RECORD && note <= LED_CLIP_LAUNCH_5;
+    }
+
+    int trackLedIndex(uint8_t note, uint8_t channel) {
+        return channel * CHAN_LED_NUM + note;
     }
 
     float calculateVoltage(uint8_t midiValue) {
