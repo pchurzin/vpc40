@@ -2,6 +2,8 @@
 #include "VpcMidiDisplay.hpp"
 #include "vpc_protocol.hpp"
 
+using namespace rack::midi;
+
 struct VpcMidiDin : ptone::MidiButton {
 	VpcMidiDin() {
 		addFrame(Svg::load(asset::system("res/ComponentLibrary/MIDI_DIN.svg")));
@@ -54,7 +56,7 @@ struct Vpc40Module : Module {
         NUM_LIGHTS
     };
 
-    rack::midi::InputQueue midiInput;
+    InputQueue midiInput;
     rack::midi::Output midiOutput;
     ptone::IoPort ioPort;
     dsp::BooleanTrigger resetButtonTrigger;
@@ -119,7 +121,7 @@ struct Vpc40Module : Module {
             testLedRingType(args);
             testLedRing(args);
         }
-        rack::midi::Message inboundMidi;
+        Message inboundMidi;
         while (midiInput.tryPop(&inboundMidi, args.frame)) {
             //DEBUG("Channel: %d, Status: %d, Note/CC: %d, Value: %d", inboundMidi.getChannel(), inboundMidi.getStatus(), inboundMidi.getNote(), inboundMidi.getValue());
             if (inboundMidi.bytes[0] == 0xF0 && 
@@ -302,7 +304,7 @@ struct Vpc40Module : Module {
     }
 
     void setCc(int64_t frame, uint8_t midiChannel, uint8_t cc, uint8_t value) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(frame);
         msg.setChannel(midiChannel);
         msg.setNote(cc);
@@ -316,7 +318,7 @@ struct Vpc40Module : Module {
     }
 
     void setLedOff(int64_t frame, uint8_t midiChannel, uint8_t note) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(frame);
         msg.setChannel(midiChannel);
         msg.setNote(note);
@@ -325,7 +327,7 @@ struct Vpc40Module : Module {
         midiOutput.sendMessage(msg);
     }
     void setLedOn(int64_t frame, uint8_t midiChannel, uint8_t note, uint8_t ledValue) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(frame);
         msg.setChannel(midiChannel);
         msg.setNote(note);
@@ -334,7 +336,7 @@ struct Vpc40Module : Module {
         midiOutput.sendMessage(msg);
     }
     void inquireDevice() {
-        rack::midi::Message msg;
+        Message msg;
         msg.setSize(6);
         msg.bytes[0] = 0xF0;
         msg.bytes[1] = 0x7E;
@@ -345,14 +347,14 @@ struct Vpc40Module : Module {
         midiOutput.sendMessage(msg);
     }
 
-    void processInquireResponse(rack::midi::Message& msg) {
+    void processInquireResponse(Message& msg) {
         //todo: fix the midi button
         midiOutput.setChannel(-1);
         sysExDeviceId = msg.bytes[13];
     }
 
     void introduce() {
-        rack::midi::Message msg;
+        Message msg;
         msg.setSize(12);
         msg.bytes[0] = 0xF0;
         msg.bytes[1] = 0x47;
@@ -386,7 +388,7 @@ struct Vpc40Module : Module {
     }
 
     void testMidi(const ProcessArgs& args) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(args.frame);
         msg.setStatus(0x09);
         msg.setChannel(0);
@@ -396,7 +398,7 @@ struct Vpc40Module : Module {
     }
 
     void testLedRingType(const ProcessArgs& args) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(args.frame);
         msg.setStatus(0x0B);
         msg.setNote(C_DEVICE_KNOB_RING_TYPE_1);
@@ -404,7 +406,7 @@ struct Vpc40Module : Module {
         midiOutput.sendMessage(msg);
     }
     void testLedRing(const ProcessArgs& args) {
-        rack::midi::Message msg;
+        Message msg;
         msg.setFrame(args.frame);
         msg.setStatus(0x0B);
         msg.setNote(C_DEVICE_KNOB_1);
