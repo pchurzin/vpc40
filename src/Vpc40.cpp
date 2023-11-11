@@ -137,62 +137,7 @@ struct Vpc40Module : Module {
             } else if (isNoteOff(inboundMidi)) {
                 processNoteOff(inboundMidi);
             } else if (isCc(inboundMidi)) {
-                uint8_t cc = inboundMidi.getNote();
-                if (isDeviceKnob(cc)) {
-                    int knob = cc - C_DEVICE_KNOB_1;
-                    int ki = knobIndex(knob, bank);
-                    uint8_t oldMidiValue = deviceKnobsMidi[ki];
-                    uint8_t newMidiValue = inboundMidi.getValue();
-                    if(oldMidiValue != newMidiValue) {
-                        deviceKnobVoltage[ki] = calculateVoltage(inboundMidi.getValue());; 
-                        deviceKnobsMidi[ki] = newMidiValue;
-                        deviceKnobUpdates[ki] = true;
-                    }
-                }
-                else if (isTrackKnob(cc)) {
-                    int knob = cc - C_TRACK_KNOB_1;
-                    int ki = knobIndex(knob, bank);
-                    uint8_t oldMidiValue = deviceKnobsMidi[ki];
-                    uint8_t newMidiValue = inboundMidi.getValue();
-                    if(oldMidiValue != newMidiValue) {
-                        trackKnobsVoltage[ki] = calculateVoltage(inboundMidi.getValue());;
-                        trackKnobsMidi[ki] = inboundMidi.getValue();
-                        trackKnobUpdates[ki] = true;
-                    }
-                }
-                // volume faders
-                else if (cc == C_TRACK_LEVEL) {
-                    uint8_t track = inboundMidi.getChannel();
-                    trackLevelVoltages[track] = calculateVoltage(inboundMidi.getValue());
-                }
-                else if (cc == C_MASTER_LEVEL) {
-                    masterLevelVoltage = calculateVoltage(inboundMidi.getValue());
-                }
-                else if (cc == C_CROSSFADER) {
-                    xFaderVoltage = calculateVoltage(inboundMidi.getValue());
-                }
-                else if (cc == C_CUE_LEVEL) {
-                    uint8_t delta = inboundMidi.getValue();
-                    if (delta > 0 && delta <= 0x3F && cueMidiValue < 127) {
-                        uint8_t availableDelta = 127 - cueMidiValue;
-                        if (delta < availableDelta) {
-                            cueMidiValue += delta;
-                        } else {
-                            cueMidiValue = 127;
-                        }
-                        cueVoltage = calculateVoltage(cueMidiValue);
-                    }
-                    else if (delta >= 0x40 && delta <= 0x7F && cueMidiValue > 0) {
-                        uint8_t normalizedDelta = 0x80 - delta;
-                        if (normalizedDelta < cueMidiValue) {
-                            cueMidiValue -= normalizedDelta;
-                        } else {
-                            cueMidiValue = 0;
-                        }
-                        cueVoltage = calculateVoltage(cueMidiValue);
-                    }
-                }
-
+                processCc(inboundMidi);
             }
         }
 
@@ -315,6 +260,80 @@ struct Vpc40Module : Module {
         int ledIndex = trackLedIndex(led, channel);
         trackLedMidiValue[ledIndex] = LED_OFF;
         trackLedUpdated[ledIndex] = true;
+    }
+
+    void processCc(Message &msg) {
+        uint8_t cc = msg.getNote();
+        if (isDeviceKnob(cc)) {
+            processDeviceKnob(cc, msg.getValue());
+        } else if (isTrackKnob(cc)) {
+            processTrackKnob(cc, msg.getValue());
+        } else if (cc == C_TRACK_LEVEL) {
+            processTrackLevel(msg.getChannel(), msg.getValue());
+        } else if (cc == C_MASTER_LEVEL) {
+            processMasterLevel(msg.getValue());
+        } else if (cc == C_CROSSFADER) {
+            processXFaderLevel(msg.getValue());
+        } else if (cc == C_CUE_LEVEL) {
+            processCueLevel(msg.getValue());
+        }
+    }
+
+    void processDeviceKnob(uint8_t cc, uint8_t value) {
+        int knob = cc - C_DEVICE_KNOB_1;
+        int ki = knobIndex(knob, bank);
+        uint8_t oldMidiValue = deviceKnobsMidi[ki];
+        uint8_t newMidiValue = value;
+        if(oldMidiValue != newMidiValue) {
+            deviceKnobVoltage[ki] = calculateVoltage(value);; 
+            deviceKnobsMidi[ki] = newMidiValue;
+            deviceKnobUpdates[ki] = true;
+        }
+    }
+
+    void processTrackKnob(uint8_t cc, uint8_t value) {
+        int knob = cc - C_TRACK_KNOB_1;
+        int ki = knobIndex(knob, bank);
+        uint8_t oldMidiValue = deviceKnobsMidi[ki];
+        uint8_t newMidiValue = value;
+        if(oldMidiValue != newMidiValue) {
+            trackKnobsVoltage[ki] = calculateVoltage(value);;
+            trackKnobsMidi[ki] = value;
+            trackKnobUpdates[ki] = true;
+        }
+    }
+
+    void processTrackLevel(uint8_t channel, uint8_t value) {
+        uint8_t track = channel;
+        trackLevelVoltages[track] = calculateVoltage(value);
+    }
+
+    void processMasterLevel(uint8_t value) {
+        masterLevelVoltage = calculateVoltage(value);
+    }
+
+    void processXFaderLevel(uint8_t value) {
+        xFaderVoltage = calculateVoltage(value);
+    }
+
+    void processCueLevel(uint8_t value) {
+        if (value > 0 && value <= 0x3F && cueMidiValue < 127) {
+            uint8_t availableDelta = 127 - cueMidiValue;
+            if (value < availableDelta) {
+                cueMidiValue += value;
+            } else {
+                cueMidiValue = 127;
+            }
+            cueVoltage = calculateVoltage(cueMidiValue);
+        } else if (value >= 0x40 && value <= 0x7F && cueMidiValue > 0) {
+            uint8_t normalizedDelta = 0x80 - value;
+            if (normalizedDelta < cueMidiValue) {
+                cueMidiValue -= normalizedDelta;
+            } else {
+                cueMidiValue = 0;
+            }
+            cueVoltage = calculateVoltage(cueMidiValue);
+        }
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
