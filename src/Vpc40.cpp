@@ -132,28 +132,9 @@ struct Vpc40Module : Module {
                 reset();
             }
             
-            if (inboundMidi.getStatus() == STATUS_NOTE_ON) {
-                uint8_t note = inboundMidi.getNote();
-                if (isTrackLed(note)) {
-                    uint8_t led = note - LED_RECORD;
-                    int ledIndex = trackLedIndex(led, inboundMidi.getChannel());
-                    trackLedMidiValue[ledIndex] = LED_ON;
-                    trackLedUpdated[ledIndex] = true;
-                }
-                else if (inboundMidi.getNote() == BTN_RIGHT) {
-                    bank = bank + 1;
-                    if (bank > PORT_MAX_CHANNELS - 1) bank = 0;
-                    bankChanged = true;
-                } else if (inboundMidi.getNote() == BTN_LEFT) {
-                    if (bank == 0) {
-                        bank = PORT_MAX_CHANNELS - 1;
-                    } else {
-                        bank = bank - 1;
-                    }
-                    bankChanged = true;
-                }
-            }
-            else if (inboundMidi.getStatus() == STATUS_NOTE_OFF) {
+            if (isNoteOn(inboundMidi)) {
+                processNoteOn(inboundMidi);
+            } else if (isNoteOff(inboundMidi)) {
                 uint8_t note = inboundMidi.getNote();
                 if (isTrackLed(note)) {
                     uint8_t led = note - LED_RECORD;
@@ -161,8 +142,7 @@ struct Vpc40Module : Module {
                     trackLedMidiValue[ledIndex] = LED_OFF;
                     trackLedUpdated[ledIndex] = true;
                 }
-            }
-            else if (inboundMidi.getStatus() == STATUS_CC) {
+            } else if (isCc(inboundMidi)) {
                 uint8_t cc = inboundMidi.getNote();
                 if (isDeviceKnob(cc)) {
                     int knob = cc - C_DEVICE_KNOB_1;
@@ -277,6 +257,56 @@ struct Vpc40Module : Module {
         if (outputs[CUE_OUTPUT].isConnected()) {
             outputs[CUE_OUTPUT].setVoltage(cueVoltage);
         }
+    }
+
+    bool isNoteOn(Message &msg) {
+        return msg.getStatus() == STATUS_NOTE_ON;
+    }
+
+    bool isNoteOff(Message &msg) {
+        return msg.getStatus() == STATUS_NOTE_OFF;
+    }
+
+    bool isCc(Message &msg) {
+        return msg.getStatus() == STATUS_CC;
+    }
+
+    void processNoteOn(Message &msg) {
+        uint8_t note = msg.getNote();
+        if (isTrackLed(note)) {
+            processTrackLedOn(note, msg.getChannel());
+        } else {
+            switch(note) {
+                case BTN_RIGHT:
+                    processBtnRightOn();
+                    break;
+                case BTN_LEFT:
+                    processBtnLeftOn();
+                    break;
+            }
+        }
+    }
+
+    void processTrackLedOn(uint8_t note, uint8_t channel) {
+        uint8_t led = note - LED_RECORD;
+        int ledIndex = trackLedIndex(led, channel);
+        trackLedMidiValue[ledIndex] = LED_ON;
+        trackLedUpdated[ledIndex] = true;
+    }
+
+    void processBtnRightOn() {
+        bank = bank + 1;
+        if (bank > PORT_MAX_CHANNELS - 1) bank = 0;
+        bankChanged = true;
+    }
+
+    void processBtnLeftOn() {
+        if (bank == 0) {
+            bank = PORT_MAX_CHANNELS - 1;
+        } else {
+            bank = bank - 1;
+        }
+        bankChanged = true;
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
