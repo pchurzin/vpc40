@@ -135,13 +135,7 @@ struct Vpc40Module : Module {
             if (isNoteOn(inboundMidi)) {
                 processNoteOn(inboundMidi);
             } else if (isNoteOff(inboundMidi)) {
-                uint8_t note = inboundMidi.getNote();
-                if (isTrackLed(note)) {
-                    uint8_t led = note - LED_RECORD;
-                    int ledIndex = trackLedIndex(led, inboundMidi.getChannel());
-                    trackLedMidiValue[ledIndex] = LED_OFF;
-                    trackLedUpdated[ledIndex] = true;
-                }
+                processNoteOff(inboundMidi);
             } else if (isCc(inboundMidi)) {
                 uint8_t cc = inboundMidi.getNote();
                 if (isDeviceKnob(cc)) {
@@ -307,6 +301,20 @@ struct Vpc40Module : Module {
             bank = bank - 1;
         }
         bankChanged = true;
+    }
+
+    void processNoteOff(Message &msg) {
+        uint8_t note = msg.getNote();
+        if (isTrackLed(note)) {
+            processTrackLedOff(note, msg.getChannel());
+        }
+    }
+
+    void processTrackLedOff(uint8_t note, uint8_t channel) {
+        uint8_t led = note - LED_RECORD;
+        int ledIndex = trackLedIndex(led, channel);
+        trackLedMidiValue[ledIndex] = LED_OFF;
+        trackLedUpdated[ledIndex] = true;
     }
 
     int knobIndex(uint8_t knob, uint8_t bank) {
