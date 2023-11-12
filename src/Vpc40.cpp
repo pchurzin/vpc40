@@ -67,16 +67,18 @@ struct Vpc40Module : Module {
 
     float device1 = 0.f;
     uint8_t bank = 0;
-    bool bankChanged = false;
+    bool bankChanged = true;
 
     // track knob values 
     float trackKnobsVoltage[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
     uint8_t trackKnobsMidi[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
-    bool trackKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {true};
+    bool trackKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {false};
     // device knob values 
     float deviceKnobVoltage[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
     uint8_t deviceKnobsMidi[PORT_MAX_CHANNELS * C_KNOB_NUM] = {0};
-    bool deviceKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {true};
+    bool deviceKnobUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {false};
+    uint8_t deviceKnobRingTypes[PORT_MAX_CHANNELS * C_KNOB_NUM] = {RING_TYPE_SINGLE};
+    bool deviceKnobRingTypeUpdates[PORT_MAX_CHANNELS * C_KNOB_NUM] = {false};
     // volume faders
     float trackLevelVoltages[CHAN_NUM] = {0};
     // master level
@@ -146,13 +148,26 @@ struct Vpc40Module : Module {
         if (rateLimitTriggered) {
             for (int k = 0; k < C_KNOB_NUM; k++) {
                 int ki = knobIndex(k, bank);
-                if(bankChanged || trackKnobUpdates[ki]) {
+                if(trackKnobUpdates[ki]) {
                     trackKnobUpdates[ki] = false;
                     setCc(args.frame, 0, C_TRACK_KNOB_1 + k, trackKnobsMidi[ki]);
                 }
-                if(bankChanged || deviceKnobUpdates[ki]) {
-                    deviceKnobUpdates[ki] = false;
+                if (bankChanged) {
+                    // update device ringType
+                    setCc(args.frame, 0, C_DEVICE_KNOB_RING_TYPE_1 + k, deviceKnobRingTypes[ki]);
+                    // update device knobValue
                     setCc(args.frame, 0, C_DEVICE_KNOB_1 + k, deviceKnobsMidi[ki]);
+                    // update track knob values
+                    setCc(args.frame, 0, C_TRACK_KNOB_1 + k, trackKnobsMidi[ki]);
+                } 
+                if (deviceKnobUpdates[ki]) {
+                    // update knobValue
+                    setCc(args.frame, 0, C_DEVICE_KNOB_1 + k, deviceKnobsMidi[ki]);
+                    deviceKnobUpdates[ki] = false;
+                } 
+                if (deviceKnobRingTypeUpdates[ki]) {
+                    setCc(args.frame, 0, C_DEVICE_KNOB_RING_TYPE_1 + k, deviceKnobRingTypes[ki]);
+                    deviceKnobRingTypeUpdates[ki] = false;
                 }
             }
             bankChanged = false;
@@ -302,12 +317,51 @@ struct Vpc40Module : Module {
     void processDeviceKnob(uint8_t cc, uint8_t value) {
         int knob = cc - C_DEVICE_KNOB_1;
         int ki = knobIndex(knob, bank);
-        uint8_t oldMidiValue = deviceKnobsMidi[ki];
+        if (isShifted) {
+            processDeviceKnobRingType(ki, value);
+        } else {
+            processDeviceKnobValue(ki, value);
+        }
+    }
+
+    void processDeviceKnobRingType(int knobIndex, uint8_t value) {
+        if (value < deviceKnobsMidi[knobIndex]) {
+            switch (deviceKnobRingTypes[knobIndex]) {
+                case RING_TYPE_SINGLE:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_PAN;
+                    break;
+                case RING_TYPE_VOLUME:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_SINGLE;
+                    break;
+                case RING_TYPE_PAN:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_VOLUME;
+                    break;
+            }
+        } else {
+            switch (deviceKnobRingTypes[knobIndex]) {
+                case RING_TYPE_SINGLE:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_VOLUME;
+                    break;
+                case RING_TYPE_VOLUME:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_PAN;
+                    break;
+                case RING_TYPE_PAN:
+                    deviceKnobRingTypes[knobIndex] = RING_TYPE_SINGLE;
+                    break;
+            }
+        }
+        deviceKnobRingTypeUpdates[knobIndex] = true;
+        // we must reset knobValue on the device
+        deviceKnobUpdates[knobIndex] = true;
+    }
+
+    void processDeviceKnobValue(int knobIndex, uint8_t value) {
+        uint8_t oldMidiValue = deviceKnobsMidi[knobIndex];
         uint8_t newMidiValue = value;
         if(oldMidiValue != newMidiValue) {
-            deviceKnobVoltage[ki] = calculateVoltage(value);; 
-            deviceKnobsMidi[ki] = newMidiValue;
-            deviceKnobUpdates[ki] = true;
+            deviceKnobVoltage[knobIndex] = calculateVoltage(value);; 
+            deviceKnobsMidi[knobIndex] = newMidiValue;
+            deviceKnobUpdates[knobIndex] = true;
         }
     }
 
@@ -460,6 +514,8 @@ struct Vpc40Module : Module {
                 deviceKnobVoltage[ki] = 0.f;
                 deviceKnobsMidi[ki] = 0;
                 deviceKnobUpdates[ki] = true;
+                deviceKnobRingTypes[ki] = RING_TYPE_SINGLE;
+                deviceKnobRingTypeUpdates[ki] = true;
             }
         }
     }
