@@ -89,6 +89,8 @@ struct Vpc40Module : Module {
     // track LEDs
     uint8_t trackLedMidiValue[CHAN_LED_NUM * CHAN_NUM] = {0};
     bool trackLedUpdated[CHAN_LED_NUM * CHAN_NUM] = {false};
+    // shift
+    bool isShifted = false;
 
     Vpc40Module() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -222,6 +224,9 @@ struct Vpc40Module : Module {
                 case BTN_LEFT:
                     processBtnLeftOn();
                     break;
+                case BTN_SHIFT:
+                    processShiftOn();
+                    break;
             }
         }
     }
@@ -248,10 +253,21 @@ struct Vpc40Module : Module {
         bankChanged = true;
     }
 
+    void processShiftOn() {
+        isShifted = true;
+    }
+
+
     void processNoteOff(Message &msg) {
         uint8_t note = msg.getNote();
         if (isTrackLed(note)) {
             processTrackLedOff(note, msg.getChannel());
+        } else {
+            switch(note) {
+                case BTN_SHIFT:
+                    processShiftOff();
+                    break;
+            }
         }
     }
 
@@ -260,6 +276,10 @@ struct Vpc40Module : Module {
         int ledIndex = trackLedIndex(led, channel);
         trackLedMidiValue[ledIndex] = LED_OFF;
         trackLedUpdated[ledIndex] = true;
+    }
+
+    void processShiftOff() {
+        isShifted = false;
     }
 
     void processCc(Message &msg) {
