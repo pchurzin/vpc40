@@ -550,6 +550,18 @@ struct Vpc40Module : Module {
         midiOutput.sendMessage(msg);
     }
 
+	void onPortChange(const PortChangeEvent& e) override {
+        if (e.connecting && e.type == rack::engine::Port::OUTPUT) {
+            if (e.portId >= LED_OUTPUT_1 && e.portId <= LED_OUTPUT_8) {
+                outputs[e.portId].channels = CHAN_LED_NUM;
+            } else if (e.portId >= DEVICE_KNOB_1_OUTPUT && e.portId <= DEVICE_KNOB_8_OUTPUT) {
+                outputs[e.portId].channels = PORT_MAX_CHANNELS;
+            } else if (e.portId >= TRACK_KNOB_1_OUTPUT && e.portId <= TRACK_KNOB_8_OUTPUT) {
+                outputs[e.portId].channels = PORT_MAX_CHANNELS;
+            }
+        }
+    }
+
     void reset() {
         bank = 0;
         bankChanged = true;
