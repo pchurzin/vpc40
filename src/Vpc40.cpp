@@ -48,6 +48,14 @@ struct Vpc40Module : Module {
         MASTER_LEVEL_OUTPUT,
         X_FADER_OUTPUT,
         CUE_OUTPUT,
+        LED_OUTPUT_1,
+        LED_OUTPUT_2,
+        LED_OUTPUT_3,
+        LED_OUTPUT_4,
+        LED_OUTPUT_5,
+        LED_OUTPUT_6,
+        LED_OUTPUT_7,
+        LED_OUTPUT_8,
         NUM_OUTPUTS
     };
     enum LightIds {
@@ -93,6 +101,7 @@ struct Vpc40Module : Module {
     // track LEDs
     uint8_t trackLedMidiValue[CHAN_LED_NUM * CHAN_NUM] = {0};
     bool trackLedUpdated[CHAN_LED_NUM * CHAN_NUM] = {false};
+    bool trackLedToggle[CHAN_LED_NUM * CHAN_NUM] = {false};
     // shift
     bool isShifted = false;
 
@@ -112,6 +121,9 @@ struct Vpc40Module : Module {
         configOutput(MASTER_LEVEL_OUTPUT, "Master level");
         configOutput(X_FADER_OUTPUT, "X-Fader level");
         configOutput(CUE_OUTPUT, "Cue level");
+        for (int i = 0; i < CHAN_NUM; i++) {
+            configOutput(LED_OUTPUT_1 + i, string::f("Channel %d leds", i + 1));
+        }
         ioPort.input = &midiInput;
         ioPort.output = &midiOutput;
     }
@@ -213,6 +225,18 @@ struct Vpc40Module : Module {
                 outputs[TRACK_LEVEL_1_OUTPUT + t].setVoltage(trackLevelVoltage[t]);
             }
         }
+        for (uint8_t c = 0; c < CHAN_LED_NUM; c++) {
+            for (uint8_t t = 0; t < CHAN_NUM; t++) {
+                if (outputs[LED_OUTPUT_1 + t].isConnected()) {
+                    int ledIndex = trackLedIndex(c, t);
+                    if (trackLedMidiValue[ledIndex] == LED_OFF) {
+                        outputs[LED_OUTPUT_1 + t].setVoltage(0.0f, c);
+                    } else {
+                        outputs[LED_OUTPUT_1 + t].setVoltage(10.0f, c);
+                    }
+                }
+            }
+        }
         if (outputs[MASTER_LEVEL_OUTPUT].isConnected()) {
             outputs[MASTER_LEVEL_OUTPUT].setVoltage(masterLevelVoltage);
         }
@@ -258,6 +282,27 @@ struct Vpc40Module : Module {
     void processTrackLedOn(uint8_t note, uint8_t channel) {
         uint8_t led = note - LED_RECORD;
         int ledIndex = trackLedIndex(led, channel);
+        if (isShifted) {
+            trackLedToggle[ledIndex] = !trackLedToggle[ledIndex];
+            return;
+        }
+        if (trackLedToggle[ledIndex]) {
+            processTrackLedToggle(ledIndex);
+        } else {
+            processTrackLedMomentary(ledIndex);
+        }
+    }
+
+    void processTrackLedToggle(int ledIndex) {
+        if (trackLedMidiValue[ledIndex] == LED_ON) {
+            trackLedMidiValue[ledIndex] = LED_OFF;
+        } else {
+            trackLedMidiValue[ledIndex] = LED_ON;
+        }
+        trackLedUpdated[ledIndex] = true;
+    }
+
+    void processTrackLedMomentary(int ledIndex) {
         trackLedMidiValue[ledIndex] = LED_ON;
         trackLedUpdated[ledIndex] = true;
     }
@@ -298,6 +343,7 @@ struct Vpc40Module : Module {
     void processTrackLedOff(uint8_t note, uint8_t channel) {
         uint8_t led = note - LED_RECORD;
         int ledIndex = trackLedIndex(led, channel);
+        if (trackLedToggle[ledIndex]) return;
         trackLedMidiValue[ledIndex] = LED_OFF;
         trackLedUpdated[ledIndex] = true;
     }
@@ -633,6 +679,9 @@ struct Vpc40Widget : ModuleWidget {
         }
         for(int i = 0; i < CHAN_NUM; i++) {
             addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 80)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
+        }
+        for(int i = 0; i < CHAN_NUM; i++) {
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 60)), module, Vpc40Module::LED_OUTPUT_1 + i));
         }
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(110, 80)), module, Vpc40Module::MASTER_LEVEL_OUTPUT));
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(130, 80)), module, Vpc40Module::X_FADER_OUTPUT));
