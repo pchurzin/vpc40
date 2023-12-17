@@ -662,26 +662,31 @@ struct Vpc40Widget : ModuleWidget {
         setPanel(APP->window->loadSvg(asset::plugin(pluginInstance, "res/panel.svg")));
         box.size = Vec(RACK_GRID_WIDTH * 38,RACK_GRID_HEIGHT);
         // MidiButton example
-        ptone::MidiButton* midiButton = createWidget<VpcMidiDin>(Vec(0, 0));
+        ptone::MidiButton* midiButton = createWidget<VpcMidiDin>(Vec(box.size.x - 50, RACK_GRID_HEIGHT - 70));
         midiButton->setMidiPort(module ? &module->ioPort : NULL);
         addChild(midiButton);
+
+        addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+        addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+        addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+        addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
         addParam(createLightParamCentered<VCVLightButton<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(101.441, 33.679)), module, Vpc40Module::RESET_PARAM, Vpc40Module::RESET_LIGHT));
         addParam(createLightParamCentered<VCVLightButton<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(101.441, 63.679)), module, Vpc40Module::TEST_PARAM, Vpc40Module::TEST_LIGHT));
 
         for(int i = 0; i < C_KNOB_NUM / 2; i++) {
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 10)), module, Vpc40Module::TRACK_KNOB_1_OUTPUT + i));
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 40)), module, Vpc40Module::DEVICE_KNOB_1_OUTPUT + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10.838 * i, 15)), module, Vpc40Module::TRACK_KNOB_1_OUTPUT + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10.838 * i, 45)), module, Vpc40Module::DEVICE_KNOB_1_OUTPUT + i));
         }
         for(int i = 0; i < C_KNOB_NUM / 2; i++) {
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 20)), module, Vpc40Module::TRACK_KNOB_5_OUTPUT + i));
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10 * i, 50)), module, Vpc40Module::DEVICE_KNOB_5_OUTPUT + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10.838 * i, 25)), module, Vpc40Module::TRACK_KNOB_5_OUTPUT + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(150 + 10.838 * i, 55)), module, Vpc40Module::DEVICE_KNOB_5_OUTPUT + i));
         }
         for(int i = 0; i < CHAN_NUM; i++) {
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 80)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(6.604 + 10.838 * i, 15)), module, Vpc40Module::TRACK_LEVEL_1_OUTPUT + i));
         }
         for(int i = 0; i < CHAN_NUM; i++) {
-            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(10 + 10 * i, 60)), module, Vpc40Module::LED_OUTPUT_1 + i));
+            addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(6.604 + 10.838 * i, 100)), module, Vpc40Module::LED_OUTPUT_1 + i));
         }
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(110, 80)), module, Vpc40Module::MASTER_LEVEL_OUTPUT));
         addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(130, 80)), module, Vpc40Module::X_FADER_OUTPUT));
